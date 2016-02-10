@@ -15,5 +15,11 @@
     "require": {
         "php": ">=5.3.9",
         "nikic/php-parser": "^2.0"
-    }
+    },
+    "autoload": {
+        "psr-0": {
+            "Softfly\\GeneratorBundle": ""
+        }
+    },
+    "target-dir": "Softfly/GeneratorBundle"
 }
