@@ -1,0 +1,4 @@
+services:
+    softfly_generator.GeneratorRestFromDoctrine:
+        class: Softfly\GeneratorBundle\GeneratorRestFromDoctrine\GeneratorRestFromDoctrine
+        arguments: ['@service_container']

@@ -1,0 +1,19 @@
+{
+    "name": "softfly/generator-bundle",
+    "description": "Generator auxiliary codes: REST from Doctrine",
+    "keywords": ["generator", "rest", "doctrine"],
+    "homepage": "https://github.com/softfly/GeneratorBundle",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Grzegorz Ziemski",
+            "email": "ziemski@gmail.com",
+            "homepage": "http://softfly.pl/"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.9",
+        "nikic/php-parser": "^2.0"
+    }
+}

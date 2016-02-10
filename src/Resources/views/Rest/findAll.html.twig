@@ -1,0 +1,16 @@
+<?php
+$data = array();
+/* @var ${{plurar_name}}Repo {{ full_name }} */
+${{plurar_name}}Repo = $this->getDoctrine()->getRepository('{{full_name}}');
+${{plurar_name}} = ${{plurar_name}}Repo->findAll();
+
+/* @var ${{plurar_name}} {{ full_name }}*/
+foreach (${{plurar_name}} as ${{singular_name}}) {
+    $row = array();
+    {% for column in columns %}
+    $row['{{column.name}}'] = ${{singular_name}}->{{column.getMethod}}();
+    {% endfor %}
+    $data[] = $row;
+}
+
+return new JsonResponse($data);
