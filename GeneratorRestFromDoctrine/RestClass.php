@@ -37,6 +37,9 @@ class RestClass {
         } catch (Error $e) {
             echo 'Parse Error: ', $e->getMessage();
         }
+        if (!file_exists('src\\' . $this->restDir)) {
+            mkdir('src\\' . $this->restDir, '755', true);
+        }
         file_put_contents($this->restPath, $code);
     }
 
@@ -71,8 +74,5 @@ class RestClass {
         return $this->restPath;
     }
     
-    function getFullClassName() {
-        return $this->getRestDir() . $this->getRestClass();
-    }
 
 }

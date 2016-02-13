@@ -6,6 +6,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use PhpParser\Error;
 use PhpParser\ParserFactory;
 use PhpParser\BuilderFactory;
+use Softfly\GeneratorBundle\GeneratorRestFromDoctrine\Model\EntityModel;
+use Softfly\GeneratorBundle\GeneratorRestFromDoctrine\Model\ColumnModel;
+use Softfly\GeneratorBundle\GeneratorRestFromDoctrine\Model\AssociationMappingModel;
 
 class GeneratorRestFromDoctrine {
 
@@ -52,7 +55,7 @@ class GeneratorRestFromDoctrine {
         $this->factory = new BuilderFactory;
     }
 
-    public function execute($outEntityClass = 'AppBundle\Entity\Offers\Property') {
+    public function execute($outEntityClass = 'AppBundle\Entity\Properties\Property') {
         $this->setEntityClass(new EntityClass($outEntityClass, $this->getEm()));
         $this->setRestClass(new RestClass($this->getEntityClass()));
 
@@ -65,14 +68,12 @@ class GeneratorRestFromDoctrine {
 
     private function getStmt() {
         $uses = array(
-            'Symfony\Bundle\FrameworkBundle\Controller\Controller',
-            'Symfony\Component\HttpFoundation\JsonResponse',
-            'Sensio\Bundle\FrameworkExtraBundle\Configuration\Route',
-            'Sensio\Bundle\FrameworkExtraBundle\Configuration\Method'
+            'FOS\RestBundle\Controller\Annotations\RouteResource',
+            'FOS\RestBundle\Controller\FOSRestController'
         );
         //Namespace
         $builder = $this->getFactory()
-                ->namespace($this->getRestClass()->getFullClassName());
+                ->namespace($this->getRestClass()->getRestDir());
         //Use
         foreach ($uses as $use) {
             $builder = $builder->addStmt($this->getFactory()->use($use));
@@ -85,44 +86,71 @@ class GeneratorRestFromDoctrine {
     private function getClass() {
         return $this->getFactory()
                         ->class($this->getRestClass()->getRestClass())
-                        ->extend('Controller')
-                        ->setDocComment('/**
-                            * @Route("/rest")
-                            */')
+                        ->extend('FOSRestController')
                         ->addStmt($this->getMethodGetAll());
     }
 
     private function getMethodGetAll() {
-        $context = array();
-        $context['singular_name'] = $this->getEntityClass()->getSingluarName();
-        $context['plurar_name'] = $plurar_name = $this->getEntityClass()->getPluralName();
-        $context['full_name'] = $this->getEntityClass()->getFullName();
+        $entityModel = new EntityModel();
+        $entityWrapper = $this->getEntityClass();
+        $entityModel->setSingularName(lcfirst($entityWrapper->getSingluarName()));
+        $entityModel->setPlurarName(lcfirst($entityWrapper->getPluralName()));
+        $entityModel->setFullName('\\' . $entityWrapper->getFullName());
+        $repo = $this->getDoctrine()->getRepository($entityWrapper->getFullName());
+        $entityModel->setRepoName('\\' . get_class($repo));
+        $entityModel->setColumns($this->getColumns($entityWrapper));
+        $entityModel->setMapping($this->getAssociationMappings($entityWrapper));
 
-        //Get entity columns
-        $columns = array();
-        foreach ($this->getEntityClass()->getClassMetadata()->getColumnNames() as $column) {
-            $row = array();
-            $a = 'get' . str_replace(' ', '', ucwords(str_replace('_', ' ', $column)));
-            if (method_exists($this->getEntityClass()->getEntity(), $a)) {
-                $row['name'] = $column;
-                $row['getMethod'] = $a;
-            }
-            $columns[$column] = $row;
-        }
-        $context['columns'] = $columns;
-        $code = $this->getTwig()->render('SoftflyGeneratorBundle:Rest:findAll.html.twig', $context);
+        $code = '<?php ' . PHP_EOL;
+        $code .= $this->getTwig()->render('SoftflyGeneratorBundle:Rest:findAll.html.twig', $entityModel->toArray());
         $stmts = $this->parseCode($code);
 
-        $namespace = $this->getPrefixRoute();
-        
         return $this->getFactory()
-                        ->method('get' . ucfirst($this->entityClass->getPluralName()))
+                        ->method('get' . ucfirst($this->entityClass->getPluralName()) . 'Action')
                         ->makePublic()
-                        ->setDocComment("/**
-                            * @Route(\"/$namespace/$plurar_name.json\", name=\"$namespace/$plurar_name\")
-                            * @Method({\"GET\"})
-                            */")
                         ->addStmts($stmts);
+    }
+
+    private function getColumns(EntityClass $entityWrapper) {
+        $columns = array();
+        foreach ($entityWrapper->getClassMetadata()->getColumnNames() as $column) {
+                $columnModel = new ColumnModel();
+                $getMethod = 'get' . str_replace(' ', '', ucwords(str_replace('_', ' ', $column)));
+                if (method_exists($entityWrapper->getEntity(), $getMethod)) {
+                    $columnModel->setSingularName($column);
+                    $columnModel->setGetMethod($getMethod);
+                }
+                $columns[] = $columnModel;
+        }
+        return $columns;
+    }
+    
+    private $depth=0;
+    private $max_depth = 10;
+    
+    private function getAssociationMappings(EntityClass $entityWrapper, $ignore=null) {
+        if ($this->depth >= $this->max_depth) {
+            return array();
+        } else {
+            $this->depth++;
+            $mappings = array();
+            foreach ($entityWrapper->getClassMetadata()->getAssociationMappings() as $column) {
+                if ($ignore != $column['fieldName']) {
+                    $mappingModel = new AssociationMappingModel();
+                    $entityWrapper2 = new EntityClass($column['targetEntity'], $this->getEm());
+                    $mappingModel->setSingularName(lcfirst($entityWrapper2->getSingluarName()));
+                    $mappingModel->setFullName('\\' . $entityWrapper2->getFullName());
+                    $mappingModel->setGetMethod('get' . ucfirst($this->camelize($column['fieldName'])));
+                    $mappingModel->setMapType($column['type']);
+                    $mappingModel->setDepth($this->depth);
+                    $mappingModel->setColumns($this->getColumns($entityWrapper2, $column['mappedBy'])); 
+                    $mappingModel->setMapping($this->getAssociationMappings($entityWrapper2, $column['mappedBy']));
+                    $mappings[] = $mappingModel;
+                }
+            }
+            $this->depth--;
+            return $mappings;
+        }
     }
 
     private function parseCode($code) {
@@ -135,6 +163,15 @@ class GeneratorRestFromDoctrine {
         }
     }
 
+    private function uncamelize($camel, $splitter = "_") {
+        $camel = preg_replace('/(?!^)[[:upper:]][[:lower:]]/', '$0', preg_replace('/(?!^)[[:upper:]]+/', $splitter . '$0', $camel));
+        return strtolower($camel);
+    }
+
+    private function camelize($str) {
+        return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $str))));
+    }
+
     private function getPrefixRoute() {
         $namespace = get_class($this->getEntityClass()->getEntity());
         $namespace = str_ireplace('\entity', '', $namespace);
@@ -142,7 +179,7 @@ class GeneratorRestFromDoctrine {
         array_shift($namespace);
         array_pop($namespace);
         $namespace = strtolower(implode('/', $namespace));
-        return 'rest/'.$namespace;
+        return $namespace;
     }
 
     function getTwig() {

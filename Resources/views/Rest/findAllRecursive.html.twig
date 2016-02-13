@@ -1,0 +1,7 @@
+foreach (${{parent.singular_name}}->{{getMethod}}() as ${{singular_name}}) {
+    $row2=array();
+    {% for column in columns %}
+    $row2['{{column.name}}'] = ${{singular_name}}->{{column.getMethod}}();
+    {% endfor %}
+    $row['{{singular_name}}'][] = $row2;
+}

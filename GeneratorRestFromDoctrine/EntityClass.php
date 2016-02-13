@@ -23,6 +23,10 @@ class EntityClass {
         return $this->entity;
     }
 
+    /**
+     * 
+     * @return \Doctrine\ORM\Mapping\ClassMetadata
+     */
     function getClassMetadata() {
         return $this->classMetadata;
     }
@@ -32,7 +36,7 @@ class EntityClass {
     }
 
     function getSingluarName() {
-        return strtolower(substr(strrchr($this->classMetadata->getName(), '\\'), 1));
+        return substr(strrchr($this->classMetadata->getName(), '\\'), 1);
     }
 
     function getPluralName() {

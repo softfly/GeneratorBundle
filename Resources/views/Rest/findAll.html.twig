@@ -1,16 +1,46 @@
-<?php
+{% macro mapper(parent, mapp) %}
+    /* @var ${{mapp.singular_name}} {{ mapp.full_name }}*/
+    {%if mapp.map_type == 2 %}
+        ${{mapp.singular_name}} = ${{parent.singular_name}}->{{mapp.get_method}}(); 
+        if (${{mapp.singular_name}}) {
+            $row{{mapp.depth}} = array();
+            {% for column in mapp.columns %}
+            $row{{mapp.depth}}['{{column.singular_name}}'] = ${{mapp.singular_name}}->{{column.get_method}}();
+            {% endfor %}
+            $row['{{mapp.singular_name}}'] = $row{{mapp.depth}};
+        }
+    {%else%}
+    foreach (${{parent.singular_name}}->{{mapp.get_method}}() as ${{mapp.singular_name}}) {
+        $row{{mapp.depth}}=array();
+        {% for column in mapp.columns %}
+        $row{{mapp.depth}}['{{column.singular_name}}'] = ${{mapp.singular_name}}->{{column.get_method}}();
+        {% endfor %}
+        $row['{{mapp.singular_name}}'][] = $row{{mapp.depth}};
+        {% for mapp2 in mapp.mapping %}
+            {{ _self.mapper(mapp, mapp2) }}
+        {% endfor %}
+    }
+    {%endif%}
+{% endmacro %}
+
 $data = array();
-/* @var ${{plurar_name}}Repo {{ full_name }} */
+/* @var ${{plurar_name}}Repo {{ repo_name }} */
 ${{plurar_name}}Repo = $this->getDoctrine()->getRepository('{{full_name}}');
 ${{plurar_name}} = ${{plurar_name}}Repo->findAll();
 
-/* @var ${{plurar_name}} {{ full_name }}*/
+/* @var ${{singular_name}} {{ full_name }}*/
 foreach (${{plurar_name}} as ${{singular_name}}) {
     $row = array();
     {% for column in columns %}
-    $row['{{column.name}}'] = ${{singular_name}}->{{column.getMethod}}();
+        $row['{{column.singular_name}}'] = ${{singular_name}}->{{column.get_method}}();
+    {% endfor %}
+    {% for mapp in mapping %}
+        {{ _self.mapper(_context, mapp) }}
     {% endfor %}
     $data[] = $row;
 }
 
-return new JsonResponse($data);
+$view = $this->view($data, 200);
+return $this->handleView($view);
+
+
