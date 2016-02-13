@@ -9,10 +9,10 @@ composer require softfly/generator-bundle
 Functionalities
 -------------------------
 1. Generate REST based on Doctrine:
-..1. Method get all entities
-....1. Generate mapping entitly to response object. 
-....2. Generate recursive mappings for relation entity.
-....3. Protection for "A circular reference"
+  1. Method get all entities
+    * Generate mapping entitly to response object. 
+    * Generate recursive mappings for relation entity.
+    * Protection for "A circular reference"
 
 
 Example
